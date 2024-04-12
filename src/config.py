@@ -17,7 +17,7 @@ target_channels = ['@chanws1', '@chan9090s', '-1002133340256']
 channel_mapping = {
     '1': '@chanws1',
     '2': '@chan9090s',
-    '3': '-1002133340256',
+    '3': -1002133340256,
     'a': '@chan9090s' 
 }
 

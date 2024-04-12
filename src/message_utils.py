@@ -3,7 +3,6 @@
 from telethon import events # type: ignore
 from config import channel_0, channel_mapping, bot_token
 from api_utils import save_message_relation, fetch_message_relations
-import aiohttp
 
 async def main(client):
     @client.on(events.NewMessage(chats=channel_0, pattern=r'#\w+'))
@@ -15,13 +14,21 @@ async def main(client):
         # Xác định các channels dựa trên từ khoá
         target_channels = [channel_mapping[char] for char in command[1:] if char in channel_mapping]
 
-        for channel in target_channels:
+        for channel_id in target_channels:
+            try:
+                # Giả sử channel_id này đã là ID hoặc username đúng, không cần dùng channel_mapping nữa
+                channel_entity = await client.get_entity(channel_id)
+            except ValueError:
+                print(f"Không thể lấy entity cho kênh: {channel_id}")
+                continue
+
             if event.message.media:
-                sent_message = await client.send_file(channel, event.message.media, caption=modified_message_text)
+                sent_message = await client.send_file(channel_entity, event.message.media, caption=modified_message_text)
             else:
-                sent_message = await client.send_message(channel, modified_message_text)
-            print("Đã gửi tin nhắn tới Channel", channel)
-            await save_message_relation(original_message_id, sent_message.id, channel)
+                sent_message = await client.send_message(channel_entity, modified_message_text)
+            print("Đã gửi tin nhắn tới Channel", channel_id)
+            await save_message_relation(original_message_id, sent_message.id, channel_id)
+
 
     @client.on(events.MessageEdited(chats=channel_0))
     async def edit_handler(event):
