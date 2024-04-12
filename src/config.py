@@ -15,7 +15,7 @@ channel_mapping_api = os.getenv('env_channel_mapping_api')
 channel_mapping_api_id = '1'
 
 
-channel_0 = '@LogBotss1'
+channel_0 = os.getenv('env_channel_main')
 
 # Khởi tạo ban đầu
 channel_mapping = {}

@@ -1,14 +1,14 @@
 # BOTCOPY/src/main.py
 
-import asyncio
+import asyncio, os
 from telethon import TelegramClient # type: ignore
 from config import api_id, api_hash, bot_token, channel_mapping_api, channel_mapping_api_id, channel_mapping
 from message_utils import main as message_main
 from api_utils import fetch_channel_mapping
 
+client = TelegramClient('bot', api_id, api_hash)
 async def start_bot():
     # Tạo một phiên client Telegram
-    client = TelegramClient('bot', api_id, api_hash)
     await client.start(bot_token=bot_token)
 
     # Tải cấu hình channel mapping từ API
@@ -24,12 +24,19 @@ async def start_bot():
     # Khởi chạy các tác vụ chính của bot
     await message_main(client)
 
+async def stop_bot():
+    await client.disconnect()
+    # Xóa file session sau khi ngắt kết nối
+    session_file = 'bot.session'
+    if os.path.exists(session_file):
+        os.remove(session_file)
+        print("Session file removed!")
+    else:
+        print("Session file does not exist.")
+
 if __name__ == '__main__':
-    # Lấy vòng lặp sự kiện hiện tại từ asyncio
-    loop = asyncio.get_event_loop()
-    
-    # Chạy bot
-    loop.run_until_complete(start_bot())
-    
-    # Đóng vòng lặp sự kiện sau khi các tác vụ đã hoàn thành
-    loop.close()
+    try:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(start_bot())
+    except KeyboardInterrupt:
+        loop.run_until_complete(stop_bot())
