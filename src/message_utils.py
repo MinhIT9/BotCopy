@@ -85,6 +85,13 @@ async def main(client):
                     print(f"Deleted message ID {forwarded_message_id} in channel {channel_handle}")
                 except Exception as e:
                     print(f"Failed to delete message {forwarded_message_id} in channel {channel_handle}: {e}")
+             # Xóa tin nhắn gốc ở channel_0
+            try:
+                await client.delete_messages(channel_0, [original_message_id])
+                print(f"Deleted original message ID {original_message_id} in channel_0.")
+            except Exception as e:
+                print(f"Failed to delete original message in channel_0: {e}")
+
              # Gọi hàm xóa mối quan hệ trên API
             await delete_message_relations(messageMaping_api, "1", str(original_message_id))  # "1" là ID tài nguyên trên API
 
