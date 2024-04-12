@@ -1,8 +1,8 @@
 # BOTCOPY/src/message_utils.py
 
 from telethon import events # type: ignore
-from config import channel_0, channel_mapping, bot_token
-from api_utils import save_message_relation, fetch_message_relations
+from config import channel_0, channel_mapping, bot_token, messageMaping_api
+from api_utils import save_message_relation, fetch_message_relations, delete_message_relations
 
 async def main(client):
     @client.on(events.NewMessage(chats=channel_0, pattern=r'#\w+'))
@@ -57,6 +57,8 @@ async def main(client):
                     print(f"Deleted message ID {forwarded_message_id} in channel {channel_handle}")
                 except Exception as e:
                     print(f"Failed to delete message {forwarded_message_id} in channel {channel_handle}: {e}")
+             # Gọi hàm xóa mối quan hệ trên API
+            await delete_message_relations(messageMaping_api, "1", str(original_message_id))  # "1" là ID tài nguyên trên API
 
 
             return  # Dừng xử lý để không chỉnh sửa nếu là lệnh xóa

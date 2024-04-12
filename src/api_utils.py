@@ -35,3 +35,27 @@ async def fetch_message_relations(original_message_id):
             print("Không thể lấy dữ liệu từ API:", await response.text())
             return {}
 
+async def delete_message_relations(api_url, resource_id, original_message_id):
+    async with aiohttp.ClientSession() as session:
+        # Đầu tiên, lấy dữ liệu hiện tại từ API
+        endpoint = f"{api_url}/{resource_id}"
+        response = await session.get(endpoint)
+        if response.status == 200:
+            data = await response.json()
+            message_id_mapping = data['message_id_mapping']
+            
+            # Kiểm tra và xóa original_message_id
+            if original_message_id in message_id_mapping:
+                del message_id_mapping[original_message_id]  # Xóa key này khỏi dictionary
+
+                # Cập nhật lại dữ liệu trên API
+                updated_data = {"message_id_mapping": message_id_mapping}
+                update_response = await session.put(endpoint, json=updated_data)
+                if update_response.status == 200:
+                    print("Successfully deleted the message relations from API.")
+                else:
+                    print("Failed to update the API after deletion.")
+            else:
+                print("Original message ID not found in the mapping.")
+        else:
+            print("Failed to fetch data from API.")
