@@ -1,7 +1,51 @@
 # BOTCOPY/src/api_utils.py
 
-import aiohttp
+import aiohttp, json
 from config import messageMaping_api
+
+
+
+
+
+async def save_channel_mapping(api_url, channel_mapping):
+    async with aiohttp.ClientSession() as session:
+        # Chuyển đổi dictionary thành string JSON để lưu trữ nếu cần
+        payload = json.dumps({'channel_mapping': channel_mapping})
+        response = await session.post(api_url, data=payload, headers={'Content-Type': 'application/json'})
+        if response.status in [200 , 201]:
+            print("Channel mapping has been saved successfully.")
+        else:
+            print("Failed to save channel mapping:", await response.text())
+            
+async def fetch_channel_mapping(api_url, api_url_id):
+    async with aiohttp.ClientSession() as session:
+        response = await session.get(api_url)
+        if response.status == 200:
+            data = await response.json()
+
+            # Tìm và trả về ChannelMapping có id
+            for item in data:
+                if item.get('id') == '1' and 'ChannelMapping' in item:
+                    channel_mapping = item['ChannelMapping']
+                    # Chuyển đổi các giá trị chuỗi thành số nguyên nếu có thể
+                    for key, value in channel_mapping.items():
+                        if isinstance(value, str) and value.lstrip('-').isdigit():
+                            channel_mapping[key] = int(value)
+                    return channel_mapping
+
+        
+            # Nếu không tìm thấy ChannelMapping với id 
+            print("No valid channel mapping found with id ")
+            return {}
+        else:
+            print("Failed to fetch channel mapping:", await response.text())
+            return {}
+
+
+
+
+
+
 
 async def save_message_relation(original_message_id, forwarded_message_id, channel_id):
     async with aiohttp.ClientSession() as session:
