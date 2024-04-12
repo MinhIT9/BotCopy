@@ -1,10 +1,6 @@
 from telethon import TelegramClient, events 
-from telethon.tl.custom import Button
 from dotenv import load_dotenv
-import os
-import requests
-import aiohttp
-import asyncio
+import asyncio, os, requests, aiohttp
 
 # Thêm dòng này để tải các biến môi trường từ file .env
 load_dotenv('env.env')
@@ -30,76 +26,69 @@ message_id_mapping = {}
 
 print("Đang khởi động...!")
 
-# Hàm lưu trữ mối quan hệ tin nhắn
 async def save_message_relation(original_message_id, forwarded_message_id, channel_id):
-   async with aiohttp.ClientSession() as session:
-        # Lấy dữ liệu hiện tại từ API
+    # Hàm này lưu trữ mối quan hệ giữa tin nhắn gốc và tin nhắn được chuyển tiếp
+    async with aiohttp.ClientSession() as session:
         response = await session.get(mockapi_endpoint)
         if response.status == 200:
             data = await response.json()
-            message_id_mapping = data[0]["message_id_mapping"]  # Giả định rằng đây là entry đầu tiên
+            current_mapping = data[0]["message_id_mapping"]
 
-            # Cập nhật dữ liệu mới vào message_id_mapping
-            if str(original_message_id) not in message_id_mapping:
-                message_id_mapping[str(original_message_id)] = {}
-            if str(forwarded_message_id) not in message_id_mapping[str(original_message_id)]:
-                message_id_mapping[str(original_message_id)][str(forwarded_message_id)] = {}
-            message_id_mapping[str(original_message_id)][str(forwarded_message_id)][str(channel_id)] = forwarded_message_id
-            
-            # Gửi yêu cầu PUT để cập nhật dữ liệu trên API
-            update_data = {
-                "message_id_mapping": message_id_mapping
-            }
-            # Sử dụng ID của entry để cập nhật nó, giả định là "1" như trong hình ảnh của bạn
-            update_endpoint = f"{mockapi_endpoint}/1"  
+            if str(original_message_id) not in current_mapping:
+                current_mapping[str(original_message_id)] = {}
+            current_mapping[str(original_message_id)][str(channel_id)] = forwarded_message_id
+
+            update_data = {"message_id_mapping": current_mapping}
+            update_endpoint = f"{mockapi_endpoint}/1"
             await session.put(update_endpoint, json=update_data)
         else:
             print("Không thể lấy dữ liệu từ mock API:", await response.text())
 
-
 @client.on(events.NewMessage(chats=channel_0, pattern='#12'))
 async def handler(event):
+    # Hàm này xử lý việc chuyển tiếp tin nhắn
     original_message_id = event.message.id
-    # Loại bỏ "#12" khỏi nội dung tin nhắn
-    modified_message_text = event.message.text.replace('#12', '').strip()
+    modified_message_text = event.message.text.replace('#12', '').strip() if event.message.text else ''
 
-    # Gửi và lưu trữ tin nhắn đã được chỉnh sửa nội dung
     for channel in target_channels:
-        sent_message = await client.send_message(channel, modified_message_text)
-        await save_message_relation(event.message.id, sent_message.id, channel)
-
+        if event.message.media:
+            sent_message = await client.send_file(channel, event.message.media, caption=modified_message_text)
+        else:
+            sent_message = await client.send_message(channel, modified_message_text)
+        await save_message_relation(original_message_id, sent_message.id, channel)
 
 @client.on(events.MessageEdited(chats=channel_0))
 async def edit_handler(event):
     original_message_id = event.message.id
-    # Kiểm tra xem tin nhắn được chỉnh sửa có chứa lệnh "/dl" hay không
-    if '/rm' in event.raw_text:
-        # Cờ hiệu để kiểm tra việc xóa tin nhắn thành công ở tất cả các channel đích
-        all_deleted_successfully = True
-        # Xóa các tin nhắn tương ứng
-        for channel in target_channels:
-            forwarded_message_id = message_tracker.pop((channel, original_message_id), None)
-            if forwarded_message_id:
-                delete_status = await client.delete_messages(channel, [forwarded_message_id])
-                if not delete_status:
-                    all_deleted_successfully = False
-                    print(f"Không thể xóa tin nhắn từ channel {channel}")
-            else:
-                all_deleted_successfully = False
-                print(f"Không tìm thấy tin nhắn trong message_tracker để xóa từ channel {channel}")
+    # Loại bỏ "#12" khỏi nội dung tin nhắn đã chỉnh sửa
+    modified_message_text = (event.message.text.replace('#12', '').strip() 
+                             if event.message.text else '')
 
-        # Nếu tất cả các tin nhắn đã được xóa thành công từ các channel đích, xóa tin nhắn gốc ở channel 0
-        if all_deleted_successfully:
-            await client.delete_messages(channel_0, [original_message_id])
-    else:
-        # Nếu không phải là lệnh xóa, cập nhật tin nhắn như bình thường
-        for channel in target_channels:
-            forwarded_message_id = message_tracker.get((channel, original_message_id))
-            if forwarded_message_id:
-                await client.edit_message(channel, forwarded_message_id, event.message.text)
+    async with aiohttp.ClientSession() as session:
+        response = await session.get(mockapi_endpoint)
+        if response.status == 200:
+            data = await response.json()
+            message_id_mapping = data[0]["message_id_mapping"]
+
+            for channel in target_channels:
+                forwarded_message_id = message_id_mapping.get(str(original_message_id), {}).get(channel)
+                if forwarded_message_id:
+                    if not event.message.media:
+                        # Đối với tin nhắn chỉ chứa văn bản
+                        await client.edit_message(channel, int(forwarded_message_id), modified_message_text)
+                    else:
+                        # Đối với tin nhắn chứa media, chỉnh sửa caption
+                        await client.edit_message(channel, int(forwarded_message_id), modified_message_text)
+                else:
+                    print(f"Không tìm thấy ID tin nhắn chuyển tiếp: {original_message_id}")
 
 
+async def main():
+    await client.start(bot_token=bot_token)
+    print("BOT đã khởi động!")
+    await client.run_until_disconnected()
 
-# Bắt đầu bot
-print("Khởi động BOT thành công!")
-client.run_until_disconnected()
+if __name__ == '__main__':
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
+    loop.close()
