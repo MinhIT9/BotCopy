@@ -6,6 +6,7 @@ from config import api_id, api_hash, bot_token, channel_mapping_api, channel_map
 from message_utils import main as message_main
 from api_utils import fetch_channel_mapping
 
+print("Đang khởi động BOT ...")
 client = TelegramClient('bot', api_id, api_hash)
 async def start_bot():
     # Tạo một phiên client Telegram
@@ -23,16 +24,17 @@ async def start_bot():
     
     # Khởi chạy các tác vụ chính của bot
     await message_main(client)
+    print("Khởi động BOT thành công!")
 
 async def stop_bot():
     await client.disconnect()
     # Xóa file session sau khi ngắt kết nối
-    session_file = 'bot.session'
-    if os.path.exists(session_file):
-        os.remove(session_file)
-        print("Session file removed!")
-    else:
-        print("Session file does not exist.")
+    # session_file = 'bot.session'
+    # if os.path.exists(session_file):
+    #     os.remove(session_file)
+    #     print("Session file removed!")
+    # else:
+    #     print("Session file does not exist.")
 
 if __name__ == '__main__':
     try:

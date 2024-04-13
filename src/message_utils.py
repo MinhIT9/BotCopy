@@ -5,7 +5,24 @@ from telethon import events # type: ignore
 from config import channel_0, channel_mapping, bot_token, messageMaping_api
 from api_utils import save_message_relation, fetch_message_relations, delete_message_relations
 
+# biến đổi channel_mapping từ dạng lồng nhau thành một dictionary đơn giản
+def simplify_channel_mapping(channel_mapping):
+    simplified_mapping = {}
+    for key, value_dict in channel_mapping.items():
+        if isinstance(value_dict, dict):
+            for channel, id in value_dict.items():
+                # Kiểm tra nếu ID là chuỗi số nguyên dương hoặc âm
+                if id.lstrip('-').isdigit():
+                    simplified_mapping[key] = int(channel)  # Chuyển đổi thành số nguyên
+                else:
+                    simplified_mapping[key] = channel  # Sử dụng channel (giả sử đây là username)
+    return simplified_mapping
+
 async def main(client):
+    # Đảm bảo rằng channel_mapping đã được cập nhật và đơn giản hóa trước khi gọi main
+    simplified_channel_mapping = simplify_channel_mapping(channel_mapping)
+    print("simplified_channel_mapping utlis: ", simplified_channel_mapping)
+    
     # ------- handler START-------- #
     @client.on(events.NewMessage(chats=channel_0, pattern=r'#\w+'))
     async def handler(event):
@@ -13,16 +30,21 @@ async def main(client):
         command = event.message.text.split()[0]
         modified_message_text = event.message.text.replace(command, '').strip() if event.message.text else ''
         
-        # Lấy danh sách tất cả các channels từ config
-        target_channels = [channel_mapping[char] for char in command[1:] if char in channel_mapping]
-        
+        # Giả sử command có dạng "#1#2#3", bạn cần lấy tất cả các kênh từ simplified_channel_mapping
+        target_channels = []
+        for char in command[1:]:  # Bỏ qua ký tự đầu tiên là '#'
+            if char in simplified_channel_mapping:
+                target_channels.append(simplified_channel_mapping[char])
+
         # Gửi tin nhắn đến tất cả các channels và lưu trữ mối quan hệ
         sent_ids = await send_message_to_multiple_channels(client, original_message_id, target_channels, modified_message_text, event.message.media if event.message.media else None)
         print("IDs of messages sent:", sent_ids)
+
+
                 
     async def send_message_to_channel(client, original_message_id, channel_id, message_text, media=None):
         try:
-            channel_entity = await client.get_entity(channel_id)
+            channel_entity = await get_channel_entity(client, channel_id)
             if media:
                 sent_message = await client.send_file(channel_entity, media, caption=message_text)
             else:
@@ -36,6 +58,7 @@ async def main(client):
         except Exception as e:
             print(f"Không thể gửi tin nhắn tới {channel_id}: {str(e)}")
             return None
+
 
         
     # Gửi tin nhắn đồng thời tới nhiều kênh
@@ -115,22 +138,22 @@ async def main(client):
                 print(f"Đã chỉnh sửa tin nhắn {forwarded_message_id} trên kênh {channel_handle}")
             except Exception as e:
                 print(f"Không thể chỉnh sửa tin nhắn: {e}")
-
-
+    # ------- edit and remove handler END-------- #
+    
     async def get_channel_entity(client, channel_id):
         try:
-            if isinstance(channel_id, str):
-                if channel_id.isdigit() or (channel_id.startswith('-') and channel_id[1:].isdigit()):
-                    channel_id = int(channel_id)
-                elif not channel_id.startswith('@'):
-                    raise ValueError("Channel ID must be an integer or start with @")
+            # Nếu channel_id là một chuỗi bắt đầu bằng '@', sử dụng trực tiếp
+            if isinstance(channel_id, str) and channel_id.startswith('@'):
+                return await client.get_entity(channel_id)
+            # Nếu channel_id là một chuỗi số, chuyển đổi sang số nguyên
+            elif isinstance(channel_id, str) and channel_id.isdigit():
+                channel_id = int(channel_id)
+            # Đảm bảo channel_id là số nguyên hoặc bắt đầu bằng '@'
             return await client.get_entity(channel_id)
         except ValueError as e:
             print(f"Invalid channel ID: {channel_id} - {str(e)}")
         except Exception as e:
             print(f"Error retrieving entity for channel {channel_id}: {str(e)}")
-    # ------- edit and remove handler END-------- #
-
 
     await client.start(bot_token=bot_token)
     print("BOT đã khởi động!")

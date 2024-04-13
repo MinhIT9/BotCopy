@@ -3,10 +3,6 @@
 import aiohttp, json
 from config import messageMaping_api
 
-
-
-
-
 async def save_channel_mapping(api_url, channel_mapping):
     async with aiohttp.ClientSession() as session:
         # Chuyển đổi dictionary thành string JSON để lưu trữ nếu cần
@@ -32,20 +28,12 @@ async def fetch_channel_mapping(api_url, api_url_id):
                         if isinstance(value, str) and value.lstrip('-').isdigit():
                             channel_mapping[key] = int(value)
                     return channel_mapping
-
-        
             # Nếu không tìm thấy ChannelMapping với id 
             print("No valid channel mapping found with id ")
             return {}
         else:
             print("Failed to fetch channel mapping:", await response.text())
             return {}
-
-
-
-
-
-
 
 async def save_message_relation(original_message_id, forwarded_message_id, channel_id):
     async with aiohttp.ClientSession() as session:

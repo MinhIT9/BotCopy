@@ -17,5 +17,11 @@ channel_mapping_api_id = '1'
 
 channel_0 = os.getenv('env_channel_main')
 
+channel_mapping={}
+
 # Khởi tạo ban đầu
-channel_mapping = {}
+# channel_mapping = {
+#     "1":"@chanws1",
+#     "2":"@chan9090s",
+#     "3": -1002133340256
+# }
