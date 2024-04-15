@@ -29,8 +29,8 @@ async def main(client):
     async def handler(event):
         original_message_id = event.message.id
         command = event.message.text.split()[0]
-        modified_message_text = event.message.text.replace(command, '').strip() if event.message.text else ''
-        
+        modified_message_text = event.message.text.replace(command, '').replace('#', '').strip() if event.message.text else ''
+
         # Giả sử command có dạng "#1#2#3", bạn cần lấy tất cả các kênh từ simplified_channel_mapping
         target_channels = []
         for char in command[1:]:  # Bỏ qua ký tự đầu tiên là '#'
@@ -128,23 +128,25 @@ async def main(client):
 
             return  # Dừng xử lý để không chỉnh sửa nếu là lệnh xóa
 
-        # Nếu không phải lệnh "/rm", xử lý chỉnh sửa tin nhắn thông thường
-        modified_message_text = text
-        message_relations = await fetch_message_relations(original_message_id)
-        if not message_relations:
-            print(f"Không tìm thấy mối quan hệ cho tin nhắn ID {original_message_id}")
-            return
+        else:
+            # Nếu không phải lệnh "/rm", xử lý chỉnh sửa tin nhắn thông thường
+            command = event.message.text.split()[0]
+            modified_message_text = text.replace(command, '').strip()
+            message_relations = await fetch_message_relations(original_message_id)
+            if not message_relations:
+                print(f"Không tìm thấy mối quan hệ cho tin nhắn ID {original_message_id}")
+                return
 
-        for channel_handle, forwarded_message_id in message_relations.items():
-            try:
-                channel_entity = await get_channel_entity(client, channel_handle)
-                if event.message.media:
-                    await client.edit_message(channel_entity, int(forwarded_message_id), file=event.message.media, text=modified_message_text)
-                else:
-                    await client.edit_message(channel_entity, int(forwarded_message_id), text=modified_message_text)
-                print(f"Đã chỉnh sửa tin nhắn {forwarded_message_id} trên kênh {channel_handle}")
-            except Exception as e:
-                print(f"Không thể chỉnh sửa tin nhắn: {e}")
+            for channel_handle, forwarded_message_id in message_relations.items():
+                try:
+                    channel_entity = await get_channel_entity(client, channel_handle)
+                    if event.message.media:
+                        await client.edit_message(channel_entity, int(forwarded_message_id), file=event.message.media, text=modified_message_text)
+                    else:
+                        await client.edit_message(channel_entity, int(forwarded_message_id), text=modified_message_text)
+                    print(f"Đã chỉnh sửa tin nhắn {forwarded_message_id} trên kênh {channel_handle}")
+                except Exception as e:
+                    print(f"Không thể chỉnh sửa tin nhắn: {e}")
     # ------- edit and remove handler END-------- #
     
     async def get_channel_entity(client, channel_id):
