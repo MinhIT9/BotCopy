@@ -2,6 +2,7 @@
 
 import asyncio
 from telethon import events # type: ignore
+from telethon.tl.types import MessageMediaWebPage # type: ignore
 from config import channel_0, channel_mapping, bot_token, messageMaping_api
 from api_utils import save_message_relation, fetch_message_relations, delete_message_relations
 
@@ -10,13 +11,13 @@ def simplify_channel_mapping(channel_mapping):
     simplified_mapping = {}
     for key, value_dict in channel_mapping.items():
         if isinstance(value_dict, dict):
-            for channel, id in value_dict.items():
-                # Kiểm tra nếu ID là chuỗi số nguyên dương hoặc âm
-                if id.lstrip('-').isdigit():
-                    simplified_mapping[key] = int(channel)  # Chuyển đổi thành số nguyên
+            for channel, _ in value_dict.items():
+                if channel.lstrip('-').isdigit():
+                    simplified_mapping[key] = int(channel)  # Chuyển đổi thành số nguyên nếu là số
                 else:
-                    simplified_mapping[key] = channel  # Sử dụng channel (giả sử đây là username)
+                    simplified_mapping[key] = channel  # Giữ nguyên nếu là tên kênh
     return simplified_mapping
+
 
 async def main(client):
     # Đảm bảo rằng channel_mapping đã được cập nhật và đơn giản hóa trước khi gọi main
@@ -45,10 +46,16 @@ async def main(client):
     async def send_message_to_channel(client, original_message_id, channel_id, message_text, media=None):
         try:
             channel_entity = await get_channel_entity(client, channel_id)
+            
+            # Kiểm tra xem media có phải là MessageMediaWebPage không
+            if isinstance(media, MessageMediaWebPage):
+                print("Loại bỏ MessageMediaWebPage khỏi tin nhắn.")
+                media = None  # Đặt lại media là None để loại bỏ nó
+
             if media:
-                sent_message = await client.send_file(channel_entity, media, caption=message_text)
+                sent_message = await client.send_file(channel_entity, media, caption=message_text, link_preview=False)
             else:
-                sent_message = await client.send_message(channel_entity, message_text)
+                sent_message = await client.send_message(channel_entity, message_text, link_preview=False)
             print(f"Đã gửi tin nhắn tới {channel_id}")
 
             # Lưu mối quan hệ tin nhắn
