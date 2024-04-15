@@ -3,7 +3,7 @@
 import asyncio
 from telethon import events # type: ignore
 from telethon.tl.types import MessageMediaWebPage # type: ignore
-from config import channel_0, channel_mapping, bot_token, messageMaping_api
+from config import channel_0, channel_mapping, bot_token, messageMaping_api, MAX_MESSAGES_PER_BATCH, MESSAGE_SEND_DELAY
 from api_utils import save_message_relation, fetch_message_relations, delete_message_relations
 
 # biến đổi channel_mapping từ dạng lồng nhau thành một dictionary đơn giản
@@ -25,22 +25,28 @@ async def main(client):
     print("simplified_channel_mapping utlis: ", simplified_channel_mapping)
     
     # ------- handler START-------- #
-    @client.on(events.NewMessage(chats=channel_0, pattern=r'#\w+'))
+    @client.on(events.NewMessage(chats=channel_0))
     async def handler(event):
         original_message_id = event.message.id
-        command = event.message.text.split()[0]
-        modified_message_text = event.message.text.replace(command, '').replace('#', '').strip() if event.message.text else ''
+        message_text = event.message.text.strip()
+        media = event.message.media
 
-        # Giả sử command có dạng "#1#2#3", bạn cần lấy tất cả các kênh từ simplified_channel_mapping
-        target_channels = []
-        for char in command[1:]:  # Bỏ qua ký tự đầu tiên là '#'
-            if char in simplified_channel_mapping:
-                target_channels.append(simplified_channel_mapping[char])
+        command = message_text.split()[0]
+        if command.startswith('#'):
+            # Lấy danh sách kênh dựa trên các ký tự sau dấu #
+            target_channels = [simplified_channel_mapping[char] for char in command[1:] if char in simplified_channel_mapping]
+            modified_message_text = message_text.replace(command, '').strip()
+        else:
+            # Gửi đến tất cả các kênh nếu không có dấu #
+            target_channels = list(simplified_channel_mapping.values())
+            modified_message_text = message_text
 
-        # Gửi tin nhắn đến tất cả các channels và lưu trữ mối quan hệ
-        sent_ids = await send_message_to_multiple_channels(client, original_message_id, target_channels, modified_message_text, event.message.media if event.message.media else None)
-        print("IDs of messages sent:", sent_ids)
-
+        # Gửi tin nhắn theo từng lô và áp dụng độ trễ
+        for i in range(0, len(target_channels), MAX_MESSAGES_PER_BATCH):
+            batch_channels = target_channels[i:i + MAX_MESSAGES_PER_BATCH]
+            sent_ids = await send_message_to_multiple_channels(client, original_message_id, batch_channels, modified_message_text, media)
+            print("IDs of messages sent:", sent_ids)
+            await asyncio.sleep(MESSAGE_SEND_DELAY)  # Độ trễ giữa mỗi lô tin nhắn
 
                 
     async def send_message_to_channel(client, original_message_id, channel_id, message_text, media=None):
@@ -59,7 +65,7 @@ async def main(client):
             print(f"Đã gửi tin nhắn tới {channel_id}")
 
             # Lưu mối quan hệ tin nhắn
-            await save_message_relation(original_message_id, sent_message.id, channel_id)
+            # await save_message_relation(original_message_id, sent_message.id, channel_id)
 
             return sent_message.id
         except Exception as e:
@@ -82,6 +88,7 @@ async def main(client):
         for channel_id, message_id in zip(channels, sent_message_ids):
             if message_id is not None:
                 await save_message_relation(original_message_id, message_id, channel_id)
+                print("Lưu lên api thành công", message_id)
         
         return sent_message_ids
 
@@ -150,7 +157,6 @@ async def main(client):
     # ------- edit and remove handler END-------- #
     
     async def get_channel_entity(client, channel_id):
-        print("channel_id get_channel_entity:", channel_id)
         try:
             # Nếu channel_id là một chuỗi bắt đầu bằng '@', sử dụng trực tiếp
             if isinstance(channel_id, str) and channel_id.startswith('@'):
