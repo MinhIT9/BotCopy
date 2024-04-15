@@ -3,8 +3,8 @@
 import asyncio, aiohttp
 from telethon import events # type: ignore
 from telethon.tl.types import MessageMediaWebPage # type: ignore
-from config import channel_0, channel_mapping, bot_token, messageMaping_api, MAX_MESSAGES_PER_BATCH, MESSAGE_SEND_DELAY
-from api_utils import fetch_message_relations, delete_message_relations, save_message_relations_bulk
+from config import channel_0, channel_mapping, bot_token, messageMaping_api, MAX_MESSAGES_PER_BATCH, MESSAGE_SEND_DELAY, channel_mapping_api, channel_mapping_api_id
+from api_utils import fetch_message_relations, delete_message_relations, save_message_relations_bulk, fetch_channel_mapping
 
 # biến đổi channel_mapping từ dạng lồng nhau thành một dictionary đơn giản
 def simplify_channel_mapping(channel_mapping):
@@ -30,6 +30,10 @@ async def main(client):
         original_message_id = event.message.id
         message_text = event.message.text.strip()
         media = event.message.media
+        
+         # Kiểm tra xem tin nhắn có phải là lệnh bằng cách kiểm tra ký tự đầu tiên là '/'
+        if message_text.startswith('/'):
+            return  # Bỏ qua tin nhắn nếu bắt đầu bằng '/'
 
         command = message_text.split()[0]
         if command.startswith('#'):
@@ -182,9 +186,36 @@ async def main(client):
             print(f"Đã chỉnh sửa tin nhắn {forwarded_message_id} trên kênh {channel_handle}")
         except Exception as e:
             print(f"Không thể chỉnh sửa tin nhắn: {e}")
-
-
     # ------- edit and remove handler END-------- #
+    
+    # ------- ShowChannel handler START-------- #
+    @client.on(events.NewMessage(chats=channel_0, pattern=r'/showChannel'))
+    async def handle_show_channel_command(event):
+        message_text = event.message.text.strip()
+        if message_text == "/showChannel":
+            # Kiểm tra và xóa tin nhắn ghim cũ nếu có
+            if 'pinned_message_id' in globals():
+                try:
+                    await client.delete_messages(channel_0, [pinned_message_id])
+                    print(f"Deleted pinned message ID {pinned_message_id}.")
+                except Exception as e:
+                    print(f"Failed to delete pinned message: {e}")
+
+            channel_mapping = await fetch_channel_mapping(channel_mapping_api, channel_mapping_api_id)
+            if channel_mapping:
+                response_text = "Channel Mappings:\n" + "\n".join(f"{key}: {val}" for key, val in channel_mapping.items())
+            else:
+                response_text = "No channel mappings found."
+
+            # Gửi phản hồi và ghim tin nhắn mới
+            response_message = await event.reply(response_text)
+            await client.pin_message(channel_0, response_message, notify=False)
+
+            # Cập nhật và lưu ID tin nhắn mới vào biến toàn cục
+            pinned_message_id = response_message.id
+            with open("pinned_message_id.txt", "w") as file:
+                file.write(str(pinned_message_id))
+    # ------- ShowChannel handler END-------- #
     
     async def get_channel_entity(client, channel_id):
         try:
