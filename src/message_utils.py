@@ -150,19 +150,19 @@ async def main(client):
     # ------- edit and remove handler END-------- #
     
     async def get_channel_entity(client, channel_id):
+        print("channel_id get_channel_entity:", channel_id)
         try:
             # Nếu channel_id là một chuỗi bắt đầu bằng '@', sử dụng trực tiếp
             if isinstance(channel_id, str) and channel_id.startswith('@'):
                 return await client.get_entity(channel_id)
-            # Nếu channel_id là một chuỗi số, chuyển đổi sang số nguyên
-            elif isinstance(channel_id, str) and channel_id.isdigit():
+             # Chuyển đổi channel_id sang số nguyên nếu nó là một chuỗi số
+            if isinstance(channel_id, str) and channel_id.lstrip('-').isdigit():
                 channel_id = int(channel_id)
             # Đảm bảo channel_id là số nguyên hoặc bắt đầu bằng '@'
             return await client.get_entity(channel_id)
         except ValueError as e:
             print(f"Invalid channel ID: {channel_id} - {str(e)}")
-        except Exception as e:
-            print(f"Error retrieving entity for channel {channel_id}: {str(e)}")
+            return None
 
     await client.start(bot_token=bot_token)
     print("BOT đã khởi động!")
