@@ -6,6 +6,8 @@ from telethon.tl.types import MessageMediaWebPage # type: ignore
 from config import channel_0, channel_mapping, bot_token, messageMaping_api, MAX_MESSAGES_PER_BATCH, MESSAGE_SEND_DELAY, channel_mapping_api, channel_mapping_api_id
 from api_utils import fetch_message_relations, delete_message_relations, save_message_relations_bulk, fetch_channel_mapping
 
+pinned_message_id = None
+
 # biến đổi channel_mapping từ dạng lồng nhau thành một dictionary đơn giản
 def simplify_channel_mapping(channel_mapping):
     simplified_mapping = {}
@@ -191,16 +193,20 @@ async def main(client):
     # ------- ShowChannel handler START-------- #
     @client.on(events.NewMessage(chats=channel_0, pattern=r'/showChannel'))
     async def handle_show_channel_command(event):
+        global pinned_message_id
+        message_id = event.message.id  # Lưu ID của tin nhắn gửi lệnhmessage_id
         message_text = event.message.text.strip()
         if message_text == "/showChannel":
             # Kiểm tra và xóa tin nhắn ghim cũ nếu có
-            if 'pinned_message_id' in globals():
+            if pinned_message_id:
                 try:
                     await client.delete_messages(channel_0, [pinned_message_id])
                     print(f"Deleted pinned message ID {pinned_message_id}.")
                 except Exception as e:
                     print(f"Failed to delete pinned message: {e}")
-
+                    
+            await client.delete_messages(channel_0, [message_id])
+            
             channel_mapping = await fetch_channel_mapping(channel_mapping_api, channel_mapping_api_id)
             if channel_mapping:
                 response_text = "Channel Mappings:\n" + "\n".join(f"{key}: {val}" for key, val in channel_mapping.items())
@@ -209,12 +215,10 @@ async def main(client):
 
             # Gửi phản hồi và ghim tin nhắn mới
             response_message = await event.reply(response_text)
-            await client.pin_message(channel_0, response_message, notify=False)
-
-            # Cập nhật và lưu ID tin nhắn mới vào biến toàn cục
-            pinned_message_id = response_message.id
+            pinned_message_id = response_message.id  # Lưu ID của tin nhắn phản hồi
             with open("pinned_message_id.txt", "w") as file:
-                file.write(str(pinned_message_id))
+                file.write(f"{message_id},{pinned_message_id}")  # Lưu cả ID của tin nhắn gửi lệnh và tin nhắn phản hồi
+            await client.pin_message(channel_0, response_message, notify=False)
     # ------- ShowChannel handler END-------- #
     
     async def get_channel_entity(client, channel_id):
