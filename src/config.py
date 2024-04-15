@@ -3,7 +3,7 @@
 import os
 from dotenv import load_dotenv
 
-MAX_MESSAGES_PER_BATCH = 4 # Số lượng tin nhắn gửi tối đa đến Channel
+MAX_MESSAGES_PER_BATCH = 10 # Số lượng tin nhắn gửi tối đa đến Channel
 MESSAGE_SEND_DELAY = 0.5  # Delay in seconds
 
 dotenv_path = os.path.join(os.path.dirname(__file__), '..', 'env.env')

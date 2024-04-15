@@ -3,6 +3,33 @@
 import aiohttp, json
 from config import messageMaping_api
 
+async def save_message_relations_bulk(original_message_id, message_relations):
+    async with aiohttp.ClientSession() as session:
+        # Lấy dữ liệu hiện tại từ API
+        response = await session.get(messageMaping_api + '/1')
+        if response.status in [200, 201]:
+            data = await response.json()
+            current_mapping = data['message_id_mapping']
+
+            # Lấy mối quan hệ tin nhắn hiện tại cho message_id, nếu không có tạo mới
+            if str(original_message_id) in current_mapping:
+                # Cập nhật các mối quan hệ hiện có bằng cách thêm hoặc cập nhật các giá trị mới
+                for channel_id, message_id in message_relations.items():
+                    current_mapping[str(original_message_id)][channel_id] = message_id
+            else:
+                # Nếu không có mối quan hệ nào trước đó, đặt mới
+                current_mapping[str(original_message_id)] = message_relations
+
+            update_data = {'message_id_mapping': current_mapping}
+            update_endpoint = f"{messageMaping_api}/1"
+            update_response = await session.put(update_endpoint, json=update_data)
+            if update_response.status == 200:
+                print("All message relations have been saved successfully")
+            else:
+                print("Failed to update message relations:", await update_response.text())
+        else:
+            print("Failed to retrieve current message relations:", await response.text())
+
 async def save_channel_mapping(api_url, channel_mapping):
     async with aiohttp.ClientSession() as session:
         # Chuyển đổi dictionary thành string JSON để lưu trữ nếu cần
@@ -34,24 +61,6 @@ async def fetch_channel_mapping(api_url, api_url_id):
         else:
             print("Failed to fetch channel mapping:", await response.text())
             return {}
-
-async def save_message_relation(original_message_id, forwarded_message_id, channel_id):
-    async with aiohttp.ClientSession() as session:
-        response = await session.get(messageMaping_api + '/1')  # Giả sử bạn lưu tất cả mapping trong document có id là '1'
-        if response.status in [200 , 201]:
-            data = await response.json()
-            current_mapping = data['message_id_mapping']  # Lấy mapping hiện tại
-
-            if str(original_message_id) not in current_mapping:
-                current_mapping[str(original_message_id)] = {}
-            current_mapping[str(original_message_id)][str(channel_id)] = forwarded_message_id
-
-            update_data = {'message_id_mapping': current_mapping}
-            update_endpoint = f"{messageMaping_api}/1"
-            await session.put(update_endpoint, json=update_data)  # Cập nhật toàn bộ mapping mới
-        else:
-            print("Không thể lấy dữ liệu từ mock API:", await response.text())
-
 
 async def fetch_message_relations(original_message_id):
     async with aiohttp.ClientSession() as session:
