@@ -1,6 +1,6 @@
 # BOTCOPY/src/message_utils.py
 
-import asyncio, aiohttp
+import asyncio, aiohttp, re
 from telethon import events # type: ignore
 from telethon.tl.types import MessageMediaWebPage # type: ignore
 from config import channel_0, channel_mapping, bot_token, messageMaping_api, MAX_MESSAGES_PER_BATCH, MESSAGE_SEND_DELAY, channel_mapping_api, channel_mapping_api_id
@@ -27,6 +27,13 @@ async def main(client):
     print("simplified_channel_mapping utlis: ", simplified_channel_mapping)
     
     # ------- Send START-------- #
+    def modify_message_text(text):
+        # Đoạn regex này tìm kiếm mẫu liên kết định dạng Markdown với **__ và __** bao quanh chữ được liên kết
+        pattern = r"\[\*\*__(.*?)__\*\*\]\((https://[^)]+)\)"
+        # Thay thế để đặt **__ và __** quanh phần chữ của liên kết, không bao gồm dấu ngoặc và URL
+        new_text = re.sub(pattern, r"**__[\1]__**(\2) ", text)
+        return new_text
+
     @client.on(events.NewMessage(chats=channel_0))
     async def handler(event):
         original_message_id = event.message.id
@@ -46,6 +53,11 @@ async def main(client):
             # Gửi đến tất cả các kênh nếu không có dấu #
             target_channels = list(simplified_channel_mapping.values())
             modified_message_text = message_text
+            print("modified_message_text: ", modified_message_text)
+        
+        # Sử dụng hàm modify_message_text để thay đổi vị trí các dấu ** và __
+        modified_message_text = modify_message_text(modified_message_text)
+        print("modified_message_text sau khi gửi: ", modified_message_text)
 
         message_relations = {}
         # Gửi tin nhắn theo từng lô và áp dụng độ trễ
@@ -119,10 +131,32 @@ async def main(client):
         original_message_id = event.message.id
         text = event.message.text.strip()  # Loại bỏ khoảng trắng thừa
         media = event.message.media
-        command = text.split()[-1]  # Lấy từ cuối cùng của tin nhắn
+        
+        # Tìm command bắt đầu bằng #
+        command_match = re.search(r'#\S*', text)
+        if command_match:
+            command = command_match.group(0)
+        else:
+            command = ''
 
-        if command.lower() == "/rm":  # Kiểm tra nếu lệnh là "/rm"
-            modified_message_text = text[:-len(command)].strip()  # Cắt bỏ lệnh "/rm" khỏi nội dung
+        # Nếu không phải lệnh "/rm", xử lý chỉnh sửa tin nhắn thông thường
+        if command.lower() != "/rm":
+            
+             # Cắt bỏ command khỏi nội dung tin nhắn để chỉnh sửa
+            modified_message_text = text.replace(command, '').strip()
+            
+             # Sử dụng hàm modify_message_text để thay đổi vị trí các dấu ** và __
+            modified_message_text = modify_message_text(modified_message_text)
+            print("modified_message_text sau edit: ", modified_message_text)
+            
+            message_relations = await fetch_message_relations(original_message_id)
+            if not message_relations:
+                print(f"Không tìm thấy mối quan hệ cho tin nhắn ID {original_message_id}")
+                return
+            await edit_messages_in_batches(client, message_relations, modified_message_text, media)
+        
+        elif command.lower() == "/rm":  # Kiểm tra nếu lệnh là "/rm"
+            # modified_message_text = text[:-len(command)].strip()  # Cắt bỏ lệnh "/rm" khỏi nội dung
             message_relations = await fetch_message_relations(original_message_id)
 
             if not message_relations:
@@ -150,20 +184,7 @@ async def main(client):
 
              # Gọi hàm xóa mối quan hệ trên API
             await delete_message_relations(messageMaping_api, "1", str(original_message_id))  # "1" là ID tài nguyên trên API
-
-
             return  # Dừng xử lý để không chỉnh sửa nếu là lệnh xóa
-
-        else:
-            # Nếu không phải lệnh "/rm", xử lý chỉnh sửa tin nhắn thông thường
-            command = event.message.text.split()[0]
-            modified_message_text = text.replace(command, '').strip()
-            message_relations = await fetch_message_relations(original_message_id)
-            if not message_relations:
-                print(f"Không tìm thấy mối quan hệ cho tin nhắn ID {original_message_id}")
-                return
-
-            await edit_messages_in_batches(client, message_relations, modified_message_text, media)
                     
     async def edit_messages_in_batches(client, message_relations, modified_message_text, media):
         tasks = []
