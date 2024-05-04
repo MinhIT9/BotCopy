@@ -2,11 +2,16 @@
 
 import aiohttp, json
 from config import messageMaping_api
+import ssl
+
+ssl_context = ssl.create_default_context()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
 
 async def save_message_relations_bulk(original_message_id, message_relations):
     async with aiohttp.ClientSession() as session:
         # Lấy dữ liệu hiện tại từ API
-        response = await session.get(messageMaping_api + '/1')
+        response = await session.get(messageMaping_api + '/1', ssl=ssl_context)
         if response.status in [200, 201]:
             data = await response.json()
             current_mapping = data['message_id_mapping']
@@ -34,7 +39,7 @@ async def save_channel_mapping(api_url, channel_mapping):
     async with aiohttp.ClientSession() as session:
         # Chuyển đổi dictionary thành string JSON để lưu trữ nếu cần
         payload = json.dumps({'channel_mapping': channel_mapping})
-        response = await session.post(api_url, data=payload, headers={'Content-Type': 'application/json'})
+        response = await session.post(api_url, data=payload, headers={'Content-Type': 'application/json'}, ssl=ssl_context)
         if response.status in [200 , 201]:
             print("Channel mapping has been saved successfully.")
         else:
