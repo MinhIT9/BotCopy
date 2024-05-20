@@ -1,10 +1,11 @@
 # BOTCOPY/src/main.py
 
-import asyncio, os
+import asyncio, os, threading
 from telethon import TelegramClient # type: ignore
 from config import api_id, api_hash, bot_token, channel_mapping_api, channel_mapping_api_id, channel_mapping
 from message_utils import main as message_main
 from api_utils import fetch_channel_mapping
+from App.flask_app import run_flask  # Nhập hàm khởi động Flask
 
 print("Đang khởi động BOT ...")
 client = TelegramClient('bot', api_id, api_hash)
@@ -28,15 +29,14 @@ async def start_bot():
 
 async def stop_bot():
     await client.disconnect()
-    # Xóa file session sau khi ngắt kết nối
-    # session_file = 'bot.session'
-    # if os.path.exists(session_file):
-    #     os.remove(session_file)
-    #     print("Session file removed!")
-    # else:
-    #     print("Session file does not exist.")
+
+def start_flask_app():
+    # Chạy Flask trong một thread riêng biệt
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
 
 if __name__ == '__main__':
+    start_flask_app()  # Khởi động Flask app
     try:
         loop = asyncio.get_event_loop()
         loop.run_until_complete(start_bot())
