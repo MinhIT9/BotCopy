@@ -1,19 +1,22 @@
-# BOTCOPY/src/main.py
-
-import asyncio, os, threading
-from telethon import TelegramClient # type: ignore
+import asyncio
+import threading
+import signal
+from werkzeug.serving import make_server
+from telethon import TelegramClient
 from config import api_id, api_hash, bot_token, channel_mapping_api, channel_mapping_api_id, channel_mapping
-from message_utils import main as message_main
 from api_utils import fetch_channel_mapping
-from App.flask_app import run_flask  # Nhập hàm khởi động Flask
+from message_utils import main as message_main
+from App.flask_app import app
 
-print("Đang khởi động BOT ...")
 client = TelegramClient('bot', api_id, api_hash)
-async def start_bot():
-    # Tạo một phiên client Telegram
-    await client.start(bot_token=bot_token)
+server = make_server('localhost', 5000, app)
+server_thread = threading.Thread(target=server.serve_forever)
+stop_event = threading.Event()
 
-    # Tải cấu hình channel mapping từ API
+async def start_bot():
+    await client.start(bot_token=bot_token)
+    
+     # Tải cấu hình channel mapping từ API
     new_channel_mapping = await fetch_channel_mapping(channel_mapping_api, channel_mapping_api_id)
     if new_channel_mapping:
         channel_mapping.clear()
@@ -22,23 +25,28 @@ async def start_bot():
         print("API Response main:", channel_mapping)
     else:
         print("Failed to load channel mappings.")
-    
-    # Khởi chạy các tác vụ chính của bot
+        
     await message_main(client)
-    print("Khởi động BOT thành công!")
 
 async def stop_bot():
+    print("Đang dừng Telegram Bot...")
     await client.disconnect()
+    print("Telegram Bot đã dừng.")
 
-def start_flask_app():
-    # Chạy Flask trong một thread riêng biệt
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.start()
+def stop_flask():
+    print("Đang dừng Flask...")
+    server.shutdown()
+    print("Flask đã dừng.")
+
+def signal_handler(sig, frame):
+    print("Đang dừng... vui lòng chờ")
+    asyncio.create_task(stop_bot())
+    stop_flask()
+    stop_event.set()
 
 if __name__ == '__main__':
-    start_flask_app()  # Khởi động Flask app
-    try:
-        loop = asyncio.get_event_loop()
-        loop.run_until_complete(start_bot())
-    except KeyboardInterrupt:
-        loop.run_until_complete(stop_bot())
+    signal.signal(signal.SIGINT, signal_handler)
+    server_thread.start()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(start_bot())
+    server_thread.join()
