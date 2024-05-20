@@ -1,3 +1,5 @@
+# BOTCOPY/src/main.py
+
 import asyncio
 import threading
 import signal
@@ -16,12 +18,11 @@ stop_event = threading.Event()
 async def start_bot():
     await client.start(bot_token=bot_token)
     
-     # Tải cấu hình channel mapping từ API
+    # Tải cấu hình channel mapping từ API
     new_channel_mapping = await fetch_channel_mapping(channel_mapping_api, channel_mapping_api_id)
     if new_channel_mapping:
         channel_mapping.clear()
         channel_mapping.update(new_channel_mapping)  # Cập nhật dữ liệu channel mapping mới
-        # print("Channel mappings loaded successfully.")
         print("API Response main:", channel_mapping)
     else:
         print("Failed to load channel mappings.")
@@ -47,6 +48,7 @@ def signal_handler(sig, frame):
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, signal_handler)
     server_thread.start()
+    print("Flask server is running. Access it at: http://localhost:5000")
     loop = asyncio.get_event_loop()
     loop.run_until_complete(start_bot())
     server_thread.join()
