@@ -14,7 +14,7 @@ Tạo Một Môi Trường Ảo
 virtualenv ten_moi_truong_ao
 
 # Kích Hoạt Môi Trường Ảo
-- Windows: .\ten_moi_truong_ao\Scripts\activate
+- Windows: .\venv\Scripts\activate
 - macOS và Linux: source ten_moi_truong_ao/bin/activate
 
 # Vô Hiệu Hóa Môi Trường Ảo
