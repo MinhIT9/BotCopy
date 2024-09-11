@@ -1,7 +1,7 @@
 ------
 # mt venv
 Tạo Môi Trường Ảo:
-- Windows: python -m venv ten_moi_truong
+- Windows: py -m venv venv
 
 Kích Hoạt Môi Trường Ảo:
 - Windows: ten_moi_truong\Scripts\activate
